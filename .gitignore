@@ -1,3 +1,6 @@
+.git/
 .vscode/
 venv/
-adcs/
+data/
+build/
+flight_dynamics/cpp/
