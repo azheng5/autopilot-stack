@@ -103,3 +103,11 @@ def compute_j2_drift_effect(sma, ecc, inc) -> float:
     aop_dot = 0.75 * Constants.J2 * (n/(1-ecc**2))**2 * (Constants.R_EARTH/sma)**2 * (5 * np.cos(inc)**2  - 1)
 
     return raan_dot, aop_dot
+
+#TODO:
+def lla_to_eci():
+    pass
+
+#TODO
+def eci_to_lla():
+    pass
