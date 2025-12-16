@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -8,31 +9,42 @@ import pandas as pd
 sys.path.append(str(Path(__file__).parent.parent))
 from flight_dynamics import Constants
 
+@dataclass
+class LogEntry:
+    t: float
+    m: float
+    rx: float
+    ry: float
+    rz: float
+    vx: float
+    vy: float
+    vz: float
+    sma: float
+    ecc: float
+    inc: float
+    raan: float
+    aop: float
+    ma: float
+    eclipse_status: float
+    hx: float
+    hy: float
+    hz: float
+    hmag: float
+    orbit_period: float
+    utc_str: str
+    et: float
+    T_ECI_x: float
+    T_ECI_y: float
+    T_ECI_z: float
+    T_LVLH_x: float
+    T_LVLH_y: float
+    T_LVLH_z: float
+    T_mag: float
+
 class OrbitLogger:
 
     def __init__(self):
-        self.logged_columns = ["t",
-                               "m",
-                               "rx",
-                               "ry",
-                               "rz",
-                               "vx",
-                               "vy",
-                               "vz",
-                               "sma",
-                               "ecc",
-                               "inc",
-                               "raan",
-                               "aop",
-                               "ma",
-                               "eclipse_status",
-                               "hx",
-                               "hy",
-                               "hz",
-                               "hmag",
-                               "orbit_period",
-                               "utc_str",
-                               "et"]
+        self.logged_columns = [f.name for f in fields(LogEntry)]
         
     def stitch_dataframes(self, out_df_list: list[pd.DataFrame]) -> pd.DataFrame:
 
@@ -46,7 +58,6 @@ class OrbitLogger:
                 df = pd.concat([df, curr_df], ignore_index=True)
                 prev_df = curr_df.copy(deep=True)
         return df
-
         
     def save_to_csv(self, out_df_list: list[pd.DataFrame], out_file_name: str) -> None:
         
@@ -166,5 +177,14 @@ class OrbitLogger:
         ax.plot(df["t"], df["orbit_period"])
         ax.set_xlabel(f"Time ({plot_timescale})")
         ax.set_ylabel("Orbit Period")
+
+        # Plot thrust components
+        # fig = plt.figure()
+        # ax = fig.add_subplot(1,1,1)
+        # ax.plot(df["t"], df["T_LVLH_x"])
+        # ax.plot(df["t"], df["T_LVLH_y"])
+        # ax.plot(df["t"], df["T_LVLH_z"])
+        # ax.set_xlabel(f"Time ({plot_timescale})")
+        # ax.set_ylabel("Thrust (N)")
 
         plt.show()

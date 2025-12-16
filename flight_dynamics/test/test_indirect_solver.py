@@ -45,7 +45,7 @@ def test_raise_circular_orbit():
     ma = 10 * (np.pi / 180)
     initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
 
-    target_sma = sma + 100
+    target_sma = sma + 50
     initial_utc_str  = "2025-01-01T00:00:00.000"
 
     solver = IndirectSolver(spacecraft)

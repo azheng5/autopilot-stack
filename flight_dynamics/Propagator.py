@@ -1,10 +1,10 @@
 import sys
+from dataclasses import fields
 from enum import Enum, auto
 from pathlib import Path
 from tqdm import tqdm
 from typing import Callable
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import spiceypy as spice
@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 import flight_dynamics.astro_utils as astro_utils
 from flight_dynamics import Constants
 from flight_dynamics.Eclipse import Eclipse
-from flight_dynamics.OrbitLogger import OrbitLogger
+from flight_dynamics.OrbitLogger import LogEntry, OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft
 
 spice.furnsh("meta_kernel.tm")
@@ -92,18 +92,66 @@ class Propagator:
             eclipse_status = Eclipse.check_eclipse(curr_cart_state[0:3], curr_utc_str)
             curr_orbit_period = astro_utils.get_orbit_period(curr_kep_state[0])
 
-            # Log data in current iteration
-            #TODO add "log data entry struct" to prevent errors
-            out_entry = [t_curr,
-                         *x_curr, 
-                         *curr_kep_state,
-                         eclipse_status,
-                         *curr_ang_mom,
-                         curr_h_norm,
-                         curr_orbit_period,
-                         curr_utc_str,
-                         curr_et]
-            logged_data.append(out_entry)
+            # Sample control input
+            if thrust_profile is None:
+                u_curr = np.array([0,0,0]).reshape(3,1)
+                T_LVLH = np.array([0,0,0]).reshape(3,1)
+            else:
+
+                # Edge case: It is illegal to apply thrust during eclipse except for the point where the 
+                # sim terminates exactly at the rising edge. This edge case needs to be dealt with since terminator
+                # conditions occur after logging
+                if eclipse_status > 0:
+                    if (PropagatorTerminator.ECLIPSE_RISING_EDGE in terminators) and prev_eclipse_status == 0:
+                        pass
+                    else:
+                        raise ValueError("Attempting to apply thrust during eclipse")
+                
+                #TODO add linear interpolation?
+                R_ECI_LVLH = astro_utils.lvlh_to_eci_matrix(curr_cart_pos,
+                                                                curr_cart_vel)
+                if thrust_frame == "ECI":
+                    u_curr = thrust_profile[step_counter,:].reshape(3,1)
+                    T_LVLH = R_ECI_LVLH.T @ u_curr       
+                elif thrust_frame == "LVLH":
+                    T_LVLH = thrust_profile[step_counter,:].reshape(3,1)
+                    u_curr = R_ECI_LVLH @ T_LVLH
+                else:
+                    raise ValueError("Invalid thrust frame")
+            u_curr_norm = np.linalg.norm(u_curr)
+
+            out_entry = LogEntry(
+                t=t_curr,
+                m=x_curr[0],
+                rx=x_curr[1],
+                ry=x_curr[2],
+                rz=x_curr[3],
+                vx=x_curr[4],
+                vy=x_curr[5],
+                vz=x_curr[6],
+                sma=curr_kep_state[0],
+                ecc=curr_kep_state[1],
+                inc=curr_kep_state[2],
+                raan=curr_kep_state[3],
+                aop=curr_kep_state[4],
+                ma=curr_kep_state[5],
+                eclipse_status=eclipse_status,
+                hx=curr_ang_mom[0],
+                hy=curr_ang_mom[1],
+                hz=curr_ang_mom[2],
+                hmag=curr_h_norm,
+                orbit_period=curr_orbit_period,
+                utc_str=curr_utc_str,
+                et=curr_et,
+                T_ECI_x=u_curr[0],
+                T_ECI_y=u_curr[1],
+                T_ECI_z=u_curr[2],
+                T_LVLH_x=T_LVLH[0],
+                T_LVLH_y=T_LVLH[1],
+                T_LVLH_z=T_LVLH[2],
+                T_mag=u_curr_norm
+            )
+            logged_data.append([getattr(out_entry, f.name) for f in fields(LogEntry)])
 
             # TODO: need to abstract event detection functions (eclipse, phasing loop, hitting periapsis/apoapsis)
             # Termination logic
@@ -133,41 +181,9 @@ class Propagator:
                 prev_phase_increment_et = curr_et
                 phase_counter += 1
 
-
-            # Its wrong to detect phasing loop increments using osculating mean anomaly....
-            # if (prev_kep_state is not None) and (curr_et - prev_phase_increment_et >= curr_orbit_period/2):
-
-            #     # Handle edge case when initial mean anomaly at 2pi border
-            #     if prev_kep_state[5] <= initial_mean_anomaly and curr_kep_state[5] <= prev_kep_state[5]:
-            #         prev_phase_increment_et = curr_et
-            #         phase_counter += 1
-
-            #     # Handle edge case when initial mean anomaly at 0 border
-            #     if prev_kep_state[5] >= initial_mean_anomaly and curr_kep_state[5] <= :
-            #         prev_phase_increment_et = curr_et
-            #         phase_counter += 1
-
             if phase_counter == phase_number:
                 termination_cause = PropagatorTerminator.PHASE_COUNT_LIMIT
                 break
-
-            # Sample control input
-            if thrust_profile is None:
-                u_curr = np.array([0,0,0])
-            else:
-                if eclipse_status > 0:
-                    raise ValueError("Attempting to apply thrust during eclipse")
-                
-                #TODO add linear interpolation?
-                if thrust_frame == "ECI":
-                    u_curr = thrust_profile[step_counter,:].reshape(3,1)          
-                elif thrust_frame == "LVLH":
-                    R_ECI_LVLH = astro_utils.lvlh_to_eci_matrix(curr_cart_pos,
-                                                                curr_cart_vel)
-                    T_LVLH = thrust_profile[step_counter,:].reshape(3,1)
-                    u_curr = R_ECI_LVLH @ T_LVLH
-                else:
-                    raise ValueError("Invalid thrust frame")
 
             # Compute RK4 step
             delta_t = spice.utc2et(time_grid[step_counter+1]) - spice.utc2et(time_grid[step_counter])

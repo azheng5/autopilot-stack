@@ -37,8 +37,7 @@ def test_propagate():
     logged_df, _ = propagator.propagate(initial_kep_state, 
                                     initial_mass,
                                     time_grid,
-                                    phase_number=2,
-                                    out_file_name=out_file_name)
+                                    phase_number=2)
     
     orbit_logger = OrbitLogger()
     orbit_logger.save_to_csv([logged_df], out_file_name)
