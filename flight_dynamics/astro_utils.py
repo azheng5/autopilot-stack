@@ -3,8 +3,9 @@ from pathlib import Path
 
 import numpy as np
 import spiceypy as spice
+from scipy.optimize import newton
 
-sys.path.append(str(Path(__file__).parent.resolve()))
+sys.path.append(str(Path(__file__).parent.parent))
 from flight_dynamics import Constants
 
 """
@@ -57,10 +58,15 @@ def cart2kep(cart_state: np.ndarray, et: float) -> np.ndarray:
     rp = elts[0]
     sma = rp / (1 - elts[1])
     ecc = elts[1]
-    inc = wrap_angle(elts[2])
-    raan = wrap_angle(elts[3])
-    aop = wrap_angle(elts[4])
-    ma = wrap_angle(elts[5])
+
+    # inc = wrap_angle(elts[2])
+    # raan = wrap_angle(elts[3])
+    # aop = wrap_angle(elts[4])
+    # ma = wrap_angle(elts[5])
+    inc = elts[2]
+    raan = elts[3]
+    aop = elts[4]
+    ma = elts[5]
 
     kep_state = np.array([sma, ecc, inc, raan, aop, ma])
     return kep_state
@@ -95,7 +101,7 @@ def compute_sso_inc(sma: float, ecc: float):
     cos_inc = (-2/3) * raan_dot * (1/Constants.J2) * ((1-ecc**2)**2/n) * (sma/Constants.R_EARTH)**2
     return np.acos(cos_inc)
 
-def compute_j2_drift_effect(sma, ecc, inc) -> float:
+def compute_j2_drift_effect(sma, ecc, inc):
 
     n = np.sqrt(Constants.EARTH_MU / sma**3)
 
@@ -103,6 +109,86 @@ def compute_j2_drift_effect(sma, ecc, inc) -> float:
     aop_dot = 0.75 * Constants.J2 * (n/(1-ecc**2))**2 * (Constants.R_EARTH/sma)**2 * (5 * np.cos(inc)**2  - 1)
 
     return raan_dot, aop_dot
+
+def construct_rotation_matrix(x_hat: np.ndarray,
+                              y_hat: np.ndarray,
+                              z_hat: np.ndarray) -> np.ndarray:
+    """
+    Generates a rotation matrix $R_A^B$ from frame A to frame B using 
+    3 unit vectors.
+
+    Arguments:
+        - x_hat: x basis vector for I frame expressed in B frame ($\mathbf{\hat{x}}^B_I$)
+        - y_hat: y basis vector for I frame expressed in B frame ($\mathbf{\hat{y}}^B_I$)
+        - z_hat: z basis vector for I frame expressed in B frame ($\mathbf{\hat{z}}^B_I$)
+    """
+
+    # Construct rotation matrix R_BA from A to B
+    return np.column_stack((x_hat, y_hat, z_hat))
+
+def lvlh_to_eci_matrix(pos: np.ndarray,
+                       vel: np.ndarray):
+    """
+    Generate a rotation matrix from LVLH to ECI frame. The ECI frame is considered as 
+    the Earth-centered J2000 frame as defined by SPICE. To rotate a vector from the
+    ECI to LVLH frame, use the transpose of this function's return.
+    
+    LVLH frame:
+        - x parallel to position vector, facing outwards
+        - z parallel to angular momentum vector
+        - y satisfies RHR and should be in almost/exact direction as velo vector
+
+    Arguments:
+        - pos: Position of spacecraft in ECI frame
+        - vel: Velocity of spacecraft in ECI frame
+
+    Returns
+        - np.ndarray: Rotation matrix from LVLH to ECI
+    """
+
+    x_hat = pos / np.linalg.norm(pos)
+    h = np.cross(pos,vel)
+    z_hat = h / np.linalg.norm(h)
+    y_hat = np.cross(z_hat, x_hat)
+
+    # Rotation matrix from LVLH to ECI
+    R_ECI_LVLH = construct_rotation_matrix(x_hat, y_hat, z_hat)
+
+    return R_ECI_LVLH
+
+def get_orbit_period(sma: float):
+    return (2*np.pi) / np.sqrt(Constants.EARTH_MU/(sma**3))
+
+def mean2true(M: float, 
+            ecc: float,
+            tol: float,
+            max_iter: int = 50) -> float:
+    """Converts mean to true anomaly"""
+
+    # Initial guess
+    E0 = M
+
+    # Solve for eccentric anomaly
+    g = lambda E: E - ecc*np.sin(E) - M
+    g_dot = lambda E: 1 - ecc*np.cos(E)
+    E = newton(g, E0, fprime=g_dot, tol=tol, maxiter=max_iter)
+
+    # Find true anomaly from eccentric anomaly
+    nu = 2 * np.arctan2(
+        np.sqrt(1 + ecc) * np.sin(E/2),
+        np.sqrt(1 - ecc) * np.cos(E/2)
+    )
+
+    return nu
+
+def true2mean():
+    pass
+
+def mean_anomaly_to_time(M_final: float, M_init: float, sma: float) -> float:
+    """Convert change in mean anomaly to change in time (seconds)"""
+    mean_motion = np.sqrt(Constants.EARTH_MU / sma**3)
+    delta_t = ((M_final - M_init)%(2*np.pi)) / mean_motion
+    return delta_t
 
 #TODO:
 def lla_to_eci():

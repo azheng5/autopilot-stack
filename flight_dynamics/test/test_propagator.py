@@ -1,14 +1,15 @@
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-import flight_dynamics.astro_utils as astro_utils
+from flight_dynamics import astro_utils
 from flight_dynamics import Constants
+from flight_dynamics import time_utils
+from flight_dynamics.OrbitLogger import OrbitLogger
 from flight_dynamics.Propagator import Propagator
-from flight_dynamics.Time import Time
+from flight_dynamics.Spacecraft import Spacecraft
 
 def test_propagate():
 
@@ -19,18 +20,29 @@ def test_propagate():
     aop = 40 * (np.pi / 180)
     ma = 10 * (np.pi / 180)
 
-    initial_mass = 1000
-    initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
+    id = '01'
+    wet_mass = 1000
+    dry_mass = 1000
     Isp = 300
-    t_final = 1*24*60*60
-    initial_time = Time(utc_string="2025-01-01T00:00:00Z")
-    delta_t = 10
+    Cd = 1
+    A_ref = 1
+    spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
+
+    initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
+    initial_mass = wet_mass
+    time_grid = time_utils.generate_time_grid("2025-01-01T00:00:00.000", 86400/2, 10)
     out_file_name = "test_output.csv"
-    out_columns = ["t","m","rx","ry","rz","vx","vy","vz","sma","ecc","inc","raan","aop","ma"]
-    plot_timescale = "days"
 
-    propagator = Propagator(initial_time, initial_kep_state, initial_mass, Isp, t_final, delta_t, out_file_name, out_columns, plot_timescale)
-
+    propagator = Propagator(spacecraft)
+    logged_df, _ = propagator.propagate(initial_kep_state, 
+                                    initial_mass,
+                                    time_grid,
+                                    phase_number=2,
+                                    out_file_name=out_file_name)
+    
+    orbit_logger = OrbitLogger()
+    orbit_logger.save_to_csv([logged_df], out_file_name)
+    orbit_logger.plot_results([logged_df], "hours")
 
 # Debugging mode
 if __name__ == "__main__":
