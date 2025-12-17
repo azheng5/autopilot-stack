@@ -38,7 +38,12 @@ class Eclipse:
         r_earth_sun_hat = r_earth_sun / r_earth_sun_norm
 
         # Compute projection and rejection vectors of satellite position
-        r_proj = np.dot(r_sc, r_earth_sun_hat) * r_earth_sun_hat
+        r_proj_scalar = np.dot(r_sc, r_earth_sun_hat)
+        # Spacecraft is on terminator plane facing the sun, which never has eclipse
+        if r_proj_scalar <= 0:
+            return 0
+        
+        r_proj = r_proj_scalar * r_earth_sun_hat
         r_proj_norm = np.linalg.norm(r_proj)
         r_rej = r_sc - r_proj
         r_rej_norm = np.linalg.norm(r_rej)
@@ -46,14 +51,14 @@ class Eclipse:
         # Check if satellite in umbra
         Ki_u = (Constants.D_EARTH * r_earth_sun_norm) / (Constants.D_SUN - Constants.D_EARTH)
         alpha_u = np.arcsin(Constants.D_EARTH / (2* Ki_u))
-        zeta =  (Ki_u - r_proj_norm) * np.tan(alpha_u)
+        zeta =  (Ki_u - r_proj_norm) * np.tan(alpha_u) # IS IT r_proj_norm OR r_proj_scalar???????
         if r_rej_norm <= zeta:
             return 2
 
         # Check if satellite in penumbra
         Ki_p = (Constants.D_EARTH * r_earth_sun_norm) / (Constants.D_SUN + Constants.D_EARTH)
         alpha_p = np.arcsin(Constants.D_EARTH / (2 * Ki_p))
-        kappa = (Ki_p + r_proj_norm) * np.tan(alpha_p)
+        kappa = (Ki_p + r_proj_norm) * np.tan(alpha_p) # IS IT r_proj_norm OR r_proj_scalar???????
         if r_rej_norm >= zeta and r_rej_norm <= kappa:
             return 1
         
@@ -78,4 +83,5 @@ class Eclipse:
         # Position of earth relative to sun in J2000 frame
         cart_state_earth_sun, _ = spice.spkezr("EARTH", curr_et, "J2000", "NONE", "SUN")
         r_earth_sun = cart_state_earth_sun[0:3]
+        
         return r_earth_sun

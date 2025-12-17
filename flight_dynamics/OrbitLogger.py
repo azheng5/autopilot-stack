@@ -40,6 +40,7 @@ class LogEntry:
     T_LVLH_y: float
     T_LVLH_z: float
     T_mag: float
+    thrust_angle: float
 
 class OrbitLogger:
 
@@ -179,12 +180,19 @@ class OrbitLogger:
         ax.set_ylabel("Orbit Period")
 
         # Plot thrust components
-        # fig = plt.figure()
-        # ax = fig.add_subplot(1,1,1)
-        # ax.plot(df["t"], df["T_LVLH_x"])
-        # ax.plot(df["t"], df["T_LVLH_y"])
-        # ax.plot(df["t"], df["T_LVLH_z"])
-        # ax.set_xlabel(f"Time ({plot_timescale})")
-        # ax.set_ylabel("Thrust (N)")
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.plot(df["t"], df["T_LVLH_x"]*1000)
+        ax.plot(df["t"], df["T_LVLH_y"]*1000)
+        ax.plot(df["t"], df["T_LVLH_z"]*1000)
+        ax.set_xlabel(f"Time ({plot_timescale})")
+        ax.set_ylabel("Thrust (N)")
+
+        # Plot thrust angle
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.plot(df["t"], df["thrust_angle"]*(180/np.pi))
+        ax.set_xlabel(f"Time ({plot_timescale})")
+        ax.set_ylabel("Thrust Angle (deg)")
 
         plt.show()

@@ -119,6 +119,7 @@ class Propagator:
                 else:
                     raise ValueError("Invalid thrust frame")
             u_curr_norm = np.linalg.norm(u_curr)
+            curr_thrust_angle = np.arctan2(T_LVLH[0], T_LVLH[1])
 
             out_entry = LogEntry(
                 t=t_curr,
@@ -149,7 +150,8 @@ class Propagator:
                 T_LVLH_x=T_LVLH[0],
                 T_LVLH_y=T_LVLH[1],
                 T_LVLH_z=T_LVLH[2],
-                T_mag=u_curr_norm
+                T_mag=u_curr_norm,
+                thrust_angle=curr_thrust_angle
             )
             logged_data.append([getattr(out_entry, f.name) for f in fields(LogEntry)])
 

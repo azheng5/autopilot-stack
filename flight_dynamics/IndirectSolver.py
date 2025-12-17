@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import spiceypy as spice
@@ -13,6 +14,7 @@ from flight_dynamics import Constants
 from flight_dynamics import time_utils
 from flight_dynamics.Eclipse import Eclipse
 from flight_dynamics.Propagator import Propagator, PropagatorTerminator
+from flight_dynamics.OrbitLogger import OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft
 
 class IndirectSolver:
@@ -67,8 +69,6 @@ class IndirectSolver:
         out_df_list = [rising_edge_df]
 
 
-        # THe issue is evry dataframe is startig at t=0 on the plots so
-        # the plots look fucked. Also why is SMA decreasing still sometimes LMAO
 
         # Iterate through single revolution profiles until target SMA is hit
         while rising_edge_kep_state[0] < target_sma:
@@ -148,7 +148,8 @@ class IndirectSolver:
                 rising_edge_utc_str = inter_df.iloc[-1]["utc_str"]
             else:
                 raise ValueError("Could not reach eclipse rising edge from applied thrust profile.")
-
+            # orbit_logger = OrbitLogger()
+            # orbit_logger.plot_results([inter_df], "hours")
             print(f"Current SMA: {rising_edge_kep_state[0]}")
 
         print(f"Solver finished with target accuracy of {abs(rising_edge_kep_state[0] - target_sma)} km.")
