@@ -11,6 +11,7 @@ import spiceypy as spice
 
 sys.path.append(str(Path(__file__).parent.parent))
 import flight_dynamics.astro_utils as astro_utils
+import flight_dynamics.timestepper_utils as timestepper_utils
 from flight_dynamics import Constants
 from flight_dynamics.Eclipse import Eclipse
 from flight_dynamics.OrbitLogger import LogEntry, OrbitLogger
@@ -70,7 +71,7 @@ class Propagator:
         if show_progress_bar:
             progress_bar = tqdm(total=100, desc="Propagating", unit="%")
             curr_progress = 0.0
-        initial_kep_state = astro_utils.cart2kep(initial_cart_state, initial_et)
+        # initial_kep_state = astro_utils.cart2kep(initial_cart_state, initial_et)
         termination_cause = PropagatorTerminator.NONE
 
         # Set up data to be logged during propagation process. Additional data
@@ -189,7 +190,11 @@ class Propagator:
 
             # Compute RK4 step
             delta_t = spice.utc2et(time_grid[step_counter+1]) - spice.utc2et(time_grid[step_counter])
-            x_next = self.rk4_step(self.eom, t_curr, x_curr, u_curr, delta_t)
+            x_next = timestepper_utils.rk4_step(self.eom, 
+                                                t_curr, 
+                                                x_curr, 
+                                                u_curr, 
+                                                delta_t)
 
             # Update progress bar
             if show_progress_bar:
@@ -259,16 +264,3 @@ class Propagator:
                           a_tot[0], a_tot[1], a_tot[2]])
         
         return x_dot
-
-    def rk4_step(self,fn: Callable[[float, np.ndarray, np.ndarray],np.ndarray],
-                t: float,
-                x: np.ndarray,
-                u: np.ndarray,
-                delta_t: float) -> np.ndarray:
-        
-        k1 = fn(t,x,u)
-        k2 = fn(t + delta_t/2, x + (delta_t/2)*k1, u)
-        k3 = fn(t + delta_t/2, x + (delta_t/2)*k2, u)
-        k4 = fn(t + delta_t, x + delta_t*k3, u)
-
-        return x + (delta_t/6) * (k1 + 2*k2 + 2*k3 + k4)

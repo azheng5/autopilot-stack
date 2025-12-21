@@ -243,4 +243,3 @@ class IndirectSolver:
         num = K2 * np.sin(nu)**2 + 4 * (1 + K2 * np.cos(nu)) * np.cos(nu)
         den = np.sqrt( ( K2 * np.sin(nu) )**2 + 4*( 1 + K2 * np.cos(nu) )**2 )
         return num / den
-

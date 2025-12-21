@@ -132,11 +132,6 @@ def lvlh_to_eci_matrix(pos: np.ndarray,
     Generate a rotation matrix from LVLH to ECI frame. The ECI frame is considered as 
     the Earth-centered J2000 frame as defined by SPICE. To rotate a vector from the
     ECI to LVLH frame, use the transpose of this function's return.
-    
-    LVLH frame:
-        - x parallel to position vector, facing outwards
-        - z parallel to angular momentum vector
-        - y satisfies RHR and should be in almost/exact direction as velo vector
 
     Arguments:
         - pos: Position of spacecraft in ECI frame
@@ -174,12 +169,13 @@ def mean2true(M: float,
     E = newton(g, E0, fprime=g_dot, tol=tol, maxiter=max_iter)
 
     # Find true anomaly from eccentric anomaly
-    nu = 2 * np.arctan2(
+    return eccentric2true(E, ecc)
+
+def eccentric2true(E: float, ecc: float) -> float:
+    return 2 * np.arctan2(
         np.sqrt(1 + ecc) * np.sin(E/2),
         np.sqrt(1 - ecc) * np.cos(E/2)
     )
-
-    return nu
 
 def true2mean():
     pass
@@ -189,6 +185,18 @@ def mean_anomaly_to_time(M_final: float, M_init: float, sma: float) -> float:
     mean_motion = np.sqrt(Constants.EARTH_MU / sma**3)
     delta_t = ((M_final - M_init)%(2*np.pi)) / mean_motion
     return delta_t
+
+def compute_mean_motion(sma: float) -> float:
+    return np.sqrt(Constants.EARTH_MU / sma**3)
+
+def compute_radius(sma: float, ecc: float, ta: float) -> float:
+    return (sma*(1 - ecc**2)) / (1 + ecc*np.cos(ta))
+    
+def vis_viva(sma: float, r: float) -> float:
+    return np.sqrt(Constants.EARTH_MU * (2/r - 1/sma))
+
+def compute_ang_mom_norm(sma: float, ecc: float) -> float:
+    return np.sqrt(Constants.EARTH_MU * sma * (1 - ecc**2))
 
 #TODO:
 def lla_to_eci():
