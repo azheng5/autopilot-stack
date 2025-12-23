@@ -8,8 +8,10 @@ from scipy.optimize import newton
 sys.path.append(str(Path(__file__).parent.parent))
 from flight_dynamics import Constants
 
+np.seterr(invalid='raise')
+
 """
-Standalone astrodynamics utility functions.
+Astrodynamics utility functions for circular/elliptical LEO.
 
 References
     - SpiceyPy documentation: https://spiceypy.readthedocs.io/en/main/documentation.html
@@ -29,6 +31,8 @@ def kep2cart(kep_state: np.ndarray, et: float) -> np.ndarray:
 
     sma = kep_state[0]
     ecc = kep_state[1]
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
     inc = kep_state[2]
     raan = kep_state[3]
     aop = kep_state[4]
@@ -59,6 +63,7 @@ def cart2kep(cart_state: np.ndarray, et: float) -> np.ndarray:
     sma = rp / (1 - elts[1])
     ecc = elts[1]
 
+
     # inc = wrap_angle(elts[2])
     # raan = wrap_angle(elts[3])
     # aop = wrap_angle(elts[4])
@@ -77,8 +82,8 @@ def wrap_angle(angle) -> float:
     # if np.isclose(ang, 2*np.pi, atol=1e-12):
     #     return 0.0
 
-    if ang >= np.pi:
-        ang = ang - 2*np.pi
+    # if ang >= np.pi:
+    #     ang = ang - 2*np.pi
 
     return ang
 
@@ -93,6 +98,9 @@ def compute_sso_inc(sma: float, ecc: float):
     Returns:
         inc: Inclination (rad)
     """
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
 
     raan_dot = 2*np.pi / Constants.SIDEREAL_YEAR_SEC
 
@@ -160,6 +168,11 @@ def mean2true(M: float,
             max_iter: int = 50) -> float:
     """Converts mean to true anomaly"""
 
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return M
+
     # Initial guess
     E0 = M
 
@@ -172,6 +185,12 @@ def mean2true(M: float,
     return eccentric2true(E, ecc)
 
 def eccentric2true(E: float, ecc: float) -> float:
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return E
+    
     return 2 * np.arctan2(
         np.sqrt(1 + ecc) * np.sin(E/2),
         np.sqrt(1 - ecc) * np.cos(E/2)
@@ -179,6 +198,18 @@ def eccentric2true(E: float, ecc: float) -> float:
 
 def true2mean():
     pass
+
+def true2eccentric(ta: float, ecc: float) -> float:
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return ta
+    
+    return 2 * np.arctan2(
+        np.sqrt(1 - ecc) * np.sin(ta/2),
+        np.sqrt(1 + ecc) * np.cos(ta/2)
+    )
 
 def mean_anomaly_to_time(M_final: float, M_init: float, sma: float) -> float:
     """Convert change in mean anomaly to change in time (seconds)"""
@@ -190,13 +221,117 @@ def compute_mean_motion(sma: float) -> float:
     return np.sqrt(Constants.EARTH_MU / sma**3)
 
 def compute_radius(sma: float, ecc: float, ta: float) -> float:
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return sma
+    
     return (sma*(1 - ecc**2)) / (1 + ecc*np.cos(ta))
     
 def vis_viva(sma: float, r: float) -> float:
     return np.sqrt(Constants.EARTH_MU * (2/r - 1/sma))
 
 def compute_ang_mom_norm(sma: float, ecc: float) -> float:
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    
     return np.sqrt(Constants.EARTH_MU * sma * (1 - ecc**2))
+
+def classical_to_equinoctial(kep_state: np.ndarray) -> np.ndarray:
+    """
+    Converts classical keplerian elements to nonsingular equinoctial elements.
+    Inverse of equinoctial_to_classical().
+
+    NOTE: If eccentricity is zero, information about E will be lost and it is
+    not possible to obtain it with an inverse conversion.
+    
+    Arguments
+        - kep_state: [sma ecc inc raan aop E]
+
+    Returns
+        - np.ndarray: [sma h k p q F]
+    """
+
+    if len(kep_state) != 6:
+        raise ValueError("Input state is not correct length.")
+
+    if kep_state[1] == 0:
+        print("NOTE: e=0: Information about E will be lost when converting from classical to equinoctial.")
+    
+    sma = kep_state[0]
+    ecc = kep_state[1]
+    inc = kep_state[2]
+    raan = kep_state[3]
+    aop = kep_state[4]
+    E = kep_state[5]
+
+    if sma < 0:
+        raise ValueError(f"SMA is negative: {sma}") 
+        # we never expect parabolic/hyperbolic in this codebase
+    
+    if ecc < 0: 
+        raise ValueError(f"ECC is negative: {ecc}")
+
+    h = ecc * np.sin(aop + raan)
+    k = ecc * np.cos(aop + raan)
+    p = np.tan(inc/2) * np.sin(raan)
+    q = np.tan(inc/2) * np.cos(raan)
+    F = raan + aop + E
+
+    return np.array([sma,h,k,p,q,F])
+
+def equinoctial_to_classical(equin_state: np.ndarray) -> np.ndarray:
+    """
+    Converts equinoctial elements to classical keplerian elements.
+    Inverse of classical_to_equinoctial().
+
+    #TODO does not handle polar orbit singularity
+
+    Arguments:
+        - equin_state: [sma h k p q F]
+
+    Returns:
+        - np.ndarray: [sma ecc inc raan aop E]
+    """
+
+    if len(equin_state) != 6:
+        raise ValueError("Input state is not correct length.")
+
+    sma = equin_state[0]
+    h = equin_state[1]
+    k = equin_state[2]
+    p = equin_state[3]
+    q = equin_state[4]
+    F = equin_state[5]
+
+    # these never happen as long as orbit eccentricity in [0,1)
+    if h >= 1:
+        raise ValueError(f"h is greater than or equal 1: {h}")
+    if h <= -1:
+        raise ValueError(f"h is less than or equal -1: {h}")
+    if k >= 1:
+        raise ValueError(f"k is greater than or equal 1: {k}")
+    if k <= -1:
+        raise ValueError(f"k is less than or equal -1: {k}")
+
+    ecc = np.sqrt(h**2 + k**2)
+
+    lop = np.arctan2(h,k)
+    E = F - lop
+
+    inc = 2 * np.arctan2(np.sqrt(p**2+q**2),1)
+    raan = np.arctan2(p,q)
+    aop = lop - raan
+
+    if ecc == 0:
+        print("NOTE: Converted to e=0 since h=0 and k=0: Info about F will be lost, and defaulting to AOP=0.")
+        aop = 0
+    else:
+        aop = lop - raan
+
+    return np.array([sma,ecc,inc,raan,aop,E])
 
 #TODO:
 def lla_to_eci():

@@ -14,3 +14,5 @@ class Spacecraft:
         self.Isp = Isp
         self.Cd = Cd
         self.A_ref = A_ref
+        #TODO add term for constant thrust
+        #TODO power, solar array degradation term, etc

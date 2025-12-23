@@ -27,6 +27,7 @@ J2 = 0.0010826269
 J3 = -0.0000025323
 J4 = -0.0000016204
 
+# Standard gravitational acceleration (km/s^2)
 G0 = 0.00980665
 
 SIDEREAL_YEAR_SEC = 365.25 * 24 * 3600

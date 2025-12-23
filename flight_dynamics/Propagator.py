@@ -71,7 +71,6 @@ class Propagator:
         if show_progress_bar:
             progress_bar = tqdm(total=100, desc="Propagating", unit="%")
             curr_progress = 0.0
-        # initial_kep_state = astro_utils.cart2kep(initial_cart_state, initial_et)
         termination_cause = PropagatorTerminator.NONE
 
         # Set up data to be logged during propagation process. Additional data
@@ -190,7 +189,7 @@ class Propagator:
 
             # Compute RK4 step
             delta_t = spice.utc2et(time_grid[step_counter+1]) - spice.utc2et(time_grid[step_counter])
-            x_next = timestepper_utils.rk4_step(self.eom, 
+            x_next = timestepper_utils.rk4_step(self.cartesian_eom, 
                                                 t_curr, 
                                                 x_curr, 
                                                 u_curr, 
@@ -225,10 +224,10 @@ class Propagator:
 
         return logged_df, termination_cause
 
-    def eom(self,
-            t: float,
-            x: np.ndarray,
-            u: np.ndarray) -> np.ndarray:
+    def cartesian_eom(self,
+                    t: float,
+                    x: np.ndarray,
+                    u: np.ndarray) -> np.ndarray:
         
         # Extract state vector
         m, rx, ry, rz, vx, vy, vz = x
