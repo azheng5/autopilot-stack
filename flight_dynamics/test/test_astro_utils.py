@@ -56,10 +56,13 @@ def test_classical_to_equinoctial():
     res_res_equin_state = astro_utils.classical_to_equinoctial(res_kep_state)
     assert np.allclose(kep_state, res_kep_state, atol=1e-12)
 
+    # NOTE: So far I've been able to validate the conversion is perfectly inverse 
+    # with up 1e-12 accuracy
+
 def test_equinoctial_to_classical():
 
     sma = Constants.R_EARTH + 500
-    h = 0.000001
+    h = 0.000001 # getting as close to the e=0 boundary as possible
     k = 0.000001
     p = 0.1
     q = -0.1
@@ -78,6 +81,9 @@ def test_equinoctial_to_classical():
     res_kep_state = astro_utils.equinoctial_to_classical(equin_state)
     res_equin_state = astro_utils.classical_to_equinoctial(res_kep_state)
     assert np.allclose(equin_state, res_equin_state, atol=1e-12)
+
+    # NOTE: So far I've been able to validate the conversion is perfectly inverse 
+    # with up 1e-12 accuracy
 
 
 # Debugging mode

@@ -191,6 +191,9 @@ def eccentric2true(E: float, ecc: float) -> float:
     if ecc == 0:
         return E
     
+    cos_ta = (np.cos(E)-ecc)/(1 - ecc*np.cos(E))
+    sin_ta = (np.sin(E))/(1 - ecc*np.cos(E))
+    
     return 2 * np.arctan2(
         np.sqrt(1 + ecc) * np.sin(E/2),
         np.sqrt(1 - ecc) * np.cos(E/2)
