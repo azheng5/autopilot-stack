@@ -15,8 +15,8 @@ from flight_dynamics.Spacecraft import Spacecraft
 #TODO test harness
 id = '01'
 wet_mass = 200
-dry_mass = 200
-Isp = 300
+dry_mass = 50
+Isp = 3000
 Cd = 1
 A_ref = 1
 spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
@@ -50,23 +50,24 @@ spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
 #                                       lambda_i_grid,
 #                                       tf)
 
-def test_solve():
+def test_generate_control_law():
 
     sma = 6700
-    ecc = 0.1
-    inc = astro_utils.compute_sso_inc(sma, ecc)
+    ecc = 0.01
+    # inc = astro_utils.compute_sso_inc(sma, ecc)
+    inc = 10 * (np.pi/180)
     raan = 30 * (np.pi / 180)
     aop = 40 * (np.pi / 180)
     ma = 10 * (np.pi / 180)
     initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
 
     target_sma = sma + 500
-    target_ecc = 0.1
+    target_ecc = 0.01
     initial_utc_str  = "2025-01-01T00:00:00.000"
 
     A_mag = 2.943e-4 * 1e-3
 
-    num_costate_nodes = 50
+    num_costate_nodes = 3
 
     solver = DirectSolver(spacecraft)
     # control_law_handle = solver.generate_control_law(initial_kep_state,
@@ -131,7 +132,8 @@ def test_mean_equinoctial_propagation():
 
     sma = 7000
     ecc = 0.1
-    inc = astro_utils.compute_sso_inc(sma, ecc)
+    # inc = astro_utils.compute_sso_inc(sma, ecc)
+    inc = 10.0 * (np.pi/180)
     raan = 30 * (np.pi / 180)
     aop = 40 * (np.pi / 180)
     E = 0.1 * (np.pi / 180)
@@ -149,26 +151,27 @@ def test_mean_equinoctial_propagation():
     lambda_e_grid = 0.01*np.ones(num_costate_nodes)
     lambda_i_grid = np.zeros(num_costate_nodes)
 
-    _, logged_eq_data = solver.mean_equinoctial_propagation(initial_equin_state,
+    z = np.concatenate([
+        a_lambda_a_grid,
+        lambda_e_grid,
+        lambda_i_grid,
+        tf
+    ])
+
+    _, logged_eq_data = solver.mean_equinoctial_propagation(z,
+                                                            initial_equin_state,
                                                         initial_mass,
                                                         initial_utc_str,
                                                         sma_grid,
-                                                        a_lambda_a_grid,
-                                                        lambda_e_grid,
-                                                        lambda_i_grid,
-                                                        tf,
                                                         A_mag)
     
     # Technically, with no J2 effect, RAAN and INC should not change at all
     # NOTE: If purely tangential thrust, AOP should not change
-    _, logged_kep_data = solver.mean_keplerian_propagation(initial_kep_state,
+    _, logged_kep_data = solver.mean_keplerian_propagation(z,
+                                                           initial_kep_state,
                                                         initial_mass,
                                                         initial_utc_str,
                                                         sma_grid,
-                                                        a_lambda_a_grid,
-                                                        lambda_e_grid,
-                                                        lambda_i_grid,
-                                                        tf,
                                                         A_mag)
     
     fig, axes = plt.subplots(3, 2)
@@ -224,6 +227,6 @@ def test_mean_equinoctial_propagation():
 # Debugging mode
 if __name__ == "__main__":
     # test_orbit_averaged_propagation()
-    test_solve()
+    test_generate_control_law()
     # test_slow_equinoctial_diff_eq()
     # test_mean_equinoctial_propagation()

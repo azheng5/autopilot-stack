@@ -23,8 +23,8 @@ solver to converge.
 
 id = '01'
 wet_mass = 200
-dry_mass = 200
-Isp = 300
+dry_mass = 0
+Isp = 3000
 Cd = 1
 A_ref = 1
 spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
@@ -50,7 +50,8 @@ v = astro_utils.vis_viva(sma, r)
 
 a_lambda_a = -1
 lambda_a = a_lambda_a / sma
-lambda_e_grid = [-1, -0.1, 0, 0.5, 1, 1.06, 2, 1e6]
+# lambda_e_grid = [-1, -0.1, 0, 0.5, 1, 1.06, 2, 1e6]
+lambda_e_grid = [0, 0.5, 1, 1.06, 2, 1e6]
 nu_grid = np.linspace(-np.pi,np.pi,100)
 
 alpha_grid = np.zeros((100,len(lambda_e_grid)))
@@ -64,14 +65,14 @@ for i in range(len(lambda_e_grid)):
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 nu_grid_deg = nu_grid *(180/np.pi)
-ax.plot(nu_grid_deg, alpha_grid[:,0]*(180/np.pi), label="lambda_e=-1")
-ax.plot(nu_grid_deg, alpha_grid[:,1]*(180/np.pi), label="lambda_e=-0.1")
-ax.plot(nu_grid_deg, alpha_grid[:,2]*(180/np.pi), label="lambda_e=-0")
-ax.plot(nu_grid_deg, alpha_grid[:,3]*(180/np.pi), label="lambda_e=0.5")
-ax.plot(nu_grid_deg, alpha_grid[:,4]*(180/np.pi), label="lambda_e=1")
-ax.plot(nu_grid_deg, alpha_grid[:,5]*(180/np.pi), label="lambda_e=1.06")
-ax.plot(nu_grid_deg, alpha_grid[:,6]*(180/np.pi), label="lambda_e=2")
-ax.plot(nu_grid_deg, alpha_grid[:,7]*(180/np.pi), label="lambda_e=1e6")
+# ax.plot(nu_grid_deg, alpha_grid[:,0]*(180/np.pi), label="lambda_e=-1")
+# ax.plot(nu_grid_deg, alpha_grid[:,1]*(180/np.pi), label="lambda_e=-0.1")
+ax.plot(nu_grid_deg, alpha_grid[:,0]*(180/np.pi), label="lambda_e=-0")
+ax.plot(nu_grid_deg, alpha_grid[:,1]*(180/np.pi), label="lambda_e=0.5")
+ax.plot(nu_grid_deg, alpha_grid[:,2]*(180/np.pi), label="lambda_e=1")
+ax.plot(nu_grid_deg, alpha_grid[:,3]*(180/np.pi), label="lambda_e=1.06")
+ax.plot(nu_grid_deg, alpha_grid[:,4]*(180/np.pi), label="lambda_e=2")
+ax.plot(nu_grid_deg, alpha_grid[:,5]*(180/np.pi), label="lambda_e=1e6")
 ax.set_xlabel("nu (deg)")
 ax.set_ylabel("Thrust Angle (deg)")
 plt.legend()

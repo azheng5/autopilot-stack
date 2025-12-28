@@ -16,7 +16,7 @@ def test_single_rev_program():
     id = '01'
     wet_mass = 1000
     dry_mass = 1000
-    Isp = 300
+    Isp = 3000
     Cd = 1
     A_ref = 1
     spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
@@ -32,7 +32,7 @@ def test_raise_circular_orbit():
     id = '01'
     wet_mass = 1000
     dry_mass = 1000
-    Isp = 300
+    Isp = 3000
     Cd = 1
     A_ref = 1
     spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
