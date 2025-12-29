@@ -7,9 +7,10 @@ import numpy as np
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from flight_dynamics import astro_utils
 from flight_dynamics import Constants
-from flight_dynamics.DirectSolver import DirectSolver
-from flight_dynamics.OldDirectSolver import OldDirectSolver
+from flight_dynamics.solver.DirectSolver import DirectSolver
+from flight_dynamics.solver.DirectSolverSettings import DirectSolverSettings
 from flight_dynamics.OrbitLogger import OrbitLogger
+from flight_dynamics.solver.DirectSolverLogger import DirectSolverLogEntry, DirectSolverLogger
 from flight_dynamics.Spacecraft import Spacecraft
 
 #TODO test harness
@@ -50,41 +51,45 @@ spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
 #                                       lambda_i_grid,
 #                                       tf)
 
-def test_generate_control_law():
+def test_perform_control_parameterization():
 
     sma = 6700
-    ecc = 0.01
+    ecc = 0.001
     # inc = astro_utils.compute_sso_inc(sma, ecc)
-    inc = 10 * (np.pi/180)
-    raan = 30 * (np.pi / 180)
-    aop = 40 * (np.pi / 180)
-    ma = 10 * (np.pi / 180)
+    inc = 0.0 * (np.pi/180)
+    raan = 0.0 * (np.pi / 180)
+    aop = 0.0 * (np.pi / 180)
+    ma = 0.0 * (np.pi / 180)
     initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
 
     target_sma = sma + 500
-    target_ecc = 0.01
+    target_ecc = 0.0
     initial_utc_str  = "2025-01-01T00:00:00.000"
+
+    sma_tol = 1
+    ecc_tol = 1e-3
+    tf_tol = 10000
 
     A_mag = 2.943e-4 * 1e-3
 
     num_costate_nodes = 3
 
-    solver = DirectSolver(spacecraft)
-    # control_law_handle = solver.generate_control_law(initial_kep_state,
-    #                                                 spacecraft.wet_mass,
-    #                                                 initial_utc_str,
-    #                                                 target_sma,
-    #                                                 num_costate_nodes)
-    control_law_handle = solver.generate_control_law(initial_kep_state,
-                                                    spacecraft.wet_mass,
-                                                    initial_utc_str,
-                                                    target_sma,
-                                                    target_ecc,
-                                                    num_costate_nodes,
-                                                    A_mag)
+    cfg = DirectSolverSettings(spacecraft,
+                               initial_kep_state, 
+                               spacecraft.wet_mass,
+                               initial_utc_str,
+                               target_sma,
+                               target_ecc,
+                               num_costate_nodes,
+                               A_mag,
+                               sma_tol,
+                               ecc_tol,
+                               tf_tol)
+    solver = DirectSolver(cfg)
+    out_z = solver.perform_control_parameterization()
+    solver.ds_logger.plot_iterations()
+
     print("done")
-    # orbit_logger = OrbitLogger()
-    # orbit_logger.plot_results(out_df_list, "hours")
 
 def test_slow_equinoctial_diff_eq():
 
@@ -227,6 +232,6 @@ def test_mean_equinoctial_propagation():
 # Debugging mode
 if __name__ == "__main__":
     # test_orbit_averaged_propagation()
-    test_generate_control_law()
+    test_perform_control_parameterization()
     # test_slow_equinoctial_diff_eq()
     # test_mean_equinoctial_propagation()

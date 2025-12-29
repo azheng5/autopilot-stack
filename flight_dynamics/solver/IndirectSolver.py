@@ -8,7 +8,7 @@ import spiceypy as spice
 from scipy.optimize import newton
 from scipy.integrate import quad
 
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from flight_dynamics import astro_utils
 from flight_dynamics import Constants
 from flight_dynamics import time_utils

@@ -7,7 +7,7 @@ import numpy as np
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from flight_dynamics import astro_utils
 from flight_dynamics import Constants
-from flight_dynamics.DirectSolver import DirectSolver
+from flight_dynamics.direct_solver.DirectSolver import DirectSolver
 from flight_dynamics.OldDirectSolver import OldDirectSolver
 from flight_dynamics.OrbitLogger import OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft
