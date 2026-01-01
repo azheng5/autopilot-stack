@@ -1,4 +1,5 @@
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,16 +14,17 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 import flight_dynamics.timestepper_utils as timestepper_utils
 from flight_dynamics import astro_utils
 from flight_dynamics import Constants
+from flight_dynamics import eclipse_utils
 from flight_dynamics import time_utils
-from flight_dynamics.Eclipse import Eclipse
 from flight_dynamics.Propagator import Propagator, PropagatorTerminator
 from flight_dynamics.solver.DirectSolverSettings import DirectSolverSettings
-from flight_dynamics.solver.DirectSolverLogger import DirectSolverLogEntry, DirectSolverLogger
+from flight_dynamics.solver.DirectSolverLogger import DirectSolverLogEntry, DirectSolverLogger, DirectSolverResult, MeanPropLogEntry
 from flight_dynamics.Spacecraft import Spacecraft
 
 class DirectSolver:
     """
-    Applies a direct optimization technique to compute low thrust trajectories.
+    Standalone low thrust solver tool that applies a direct optimization technique 
+    to compute LEO transfers.
 
     References:
         - Spacecraft Trajectory Optmization
@@ -32,28 +34,19 @@ class DirectSolver:
                  cfg: DirectSolverSettings) -> None:
         self.cfg = cfg
         self.ds_logger = DirectSolverLogger()
+
+        # Default universal SLSQP solver function tolerance setting
         self.ftol = 1e-6
 
-    # def solve():
-        
-    #     control_law_handle = self.generate_control_law()
-
-    #     #TODO modify propagator to be able to take in control laws
-    #     propagator = Propagator(self.spacecraft)
-
-    def perform_control_parameterization(self):
+    def perform_control_parameterization(self) -> DirectSolverResult:
         """
         Parameterize controls to drive low thrust spacecraft from an
         initial keplerian state to a final target SMA and ECC
 
         Can choose to use either equinoctial or keplerian elements to solve.
         
-        Arguments:
-            - initial_kep_state: [sma ecc inc raan aop ta]
-            - initial_mass: Initial spacecraft mass (kg)
-            - initial_utc_str: Initial UTC string format (Constants.UTC_FORMAT)
-            - target_sma: Target SMA (km)
-            - num_costate_nodes: Resolution of costate grid
+        Returns:
+            - Decision vector z
         """
 
         # Generate initial guess for decision vector and absolute final time guess
@@ -66,9 +59,11 @@ class DirectSolver:
         # When lambda_a and lambda_e are both 0, the 
         # optimal thrust angle equation hits a singularity,
         # so numerically we avoid using 0.
-        #TODO still hardcoded
-        a_lambda_a_bounds = [(-5,-0.0001)]*self.cfg.num_costate_nodes
-        lambda_e_bounds = [(-0.01,1.0)]*self.cfg.num_costate_nodes
+        #TODO 5 is still hardcoded
+        # a_lambda_a_bounds = [(-20,-0.0001)]*self.cfg.num_costate_nodes
+        # lambda_e_bounds = [(-0.01,10.0)]*self.cfg.num_costate_nodes
+        a_lambda_a_bounds = [(None,None)]*self.cfg.num_costate_nodes
+        lambda_e_bounds = [(None,None)]*self.cfg.num_costate_nodes
         lambda_i_bounds = [(0,0)]*self.cfg.num_costate_nodes
         rel_tf_bounds = (0.0,50*initial_guess[-1])
         bounds = [*a_lambda_a_bounds,
@@ -91,6 +86,7 @@ class DirectSolver:
         optimizer_callback_handle = lambda z: self.optimizer_callback(z)
 
         # Run minimizer
+        start_time = time.perf_counter()
         opt_result = minimize(
             fun= objective_handle,
             x0= initial_guess,
@@ -103,27 +99,39 @@ class DirectSolver:
             callback=optimizer_callback_handle,
             options=slsqp_options
         )
+        end_time = time.perf_counter()
 
         #TODO put all this stuff in a txt file output
-        print("-------------------- SOLVER COMPLETED --------------------")
+        print(f"-------------------- SOLVER COMPLETED IN {end_time-start_time:.3f} SECONDS --------------------")
         a_lambda_a_grid, lambda_e_grid, lambda_i_grid, rel_tf = self.unpack_z(opt_result.x)
 
-        final_eq_x_bar, _ = self.mean_equinoctial_propagation(opt_result.x)
+        final_eq_x_bar = self.mean_equinoctial_propagation(opt_result.x, log=True)
         final_mean_equin_state = final_eq_x_bar[0:5]
         final_mass = final_eq_x_bar[5]
         final_mean_kep_state = astro_utils.equinoctial_to_classical(np.concatenate((final_mean_equin_state,[0.0])))
+        tf = rel_tf*self.cfg.tf_tol
+        #TODO: this is debug stuff remove
         print(f"Final SMA: {final_mean_kep_state[0]}")
         print(f"Final ECC: {final_mean_kep_state[1]}")
         print(f"Final INC: {final_mean_kep_state[2]}")
         print(f"Final RAAN: {final_mean_kep_state[3]}")
         print(f"Final AOP: {final_mean_kep_state[4]}")
         print(f"Final mass: {final_mass}")
-        print(f"Final time: {rel_tf*self.cfg.tf_tol}")
+        print(f"Final time: {tf}")
         print(f"SMA constraint: {self.sma_constraint(final_mean_kep_state[0])}")
         print(f"Eccentricity constraint: {self.ecc_constraint(final_mean_kep_state[1])}")
         print(f"ftol: {self.ftol}")
 
-        return opt_result.x
+        # Log final result
+        self.ds_logger.ds_result = DirectSolverResult(
+            tf=tf,
+            sma_grid=self.cfg.sma_grid,
+            a_lambda_a_grid=a_lambda_a_grid,
+            lambda_e_grid=lambda_e_grid,
+            lambda_i_grid=lambda_i_grid
+        )
+
+        return self.ds_logger.ds_result
 
     def pack_z(self, 
                a_lambda_a_grid: np.ndarray, 
@@ -146,28 +154,6 @@ class DirectSolver:
         lambda_i_grid = z[2*num_costate_nodes:3*num_costate_nodes]
         rel_tf = z[-1]
         return a_lambda_a_grid, lambda_e_grid, lambda_i_grid, rel_tf
-    
-    def control_law_skeleton(self, kep_state: np.ndarray):
-        return None
-
-        # sma = kep_state[0]
-        # ecc = kep_state[1]
-        # ta = kep_state[5]
-        # r = astro_utils.compute_radius(sma, ecc, ta)
-        # v = astro_utils.vis_viva(sma, r)
-
-        # lambda_a = 
-        # lambda_e = 
-        # lambda_i = 
-
-
-        # alpha = self.compute_thrust_angle(self, sma, ecc, r, v, ta, lambda_a, lambda_e, lambda_i)
-        # beta = 0
-        # A_mag = 
-
-        # a_thurst = self.compute_nth_thrust_components(A_mag, alpha, beta)
-
-        # return
 
     def generate_initial_guess(self) -> np.ndarray:
         """
@@ -229,6 +215,9 @@ class DirectSolver:
     #     return 0.0
     
     def sma_constraint(self, final_sma: float) -> float:
+        """
+        Semi-major axis terminal constraint.
+        """
         # sma_relative_error_tol = 1e-5
         # sma_relative_error = sma_relative_error_tol - abs((final_sma - target_sma)/target_sma)
         # return sma_relative_error
@@ -237,6 +226,9 @@ class DirectSolver:
         return ((final_sma - self.cfg.target_sma)/(self.cfg.sma_tol)) * self.ftol
 
     def ecc_constraint(self, final_ecc: float) -> float:
+        """
+        Eccentrcity terminal constraint.
+        """
         # return 1e-3 - abs(final_ecc - target_ecc)
         # return final_ecc - self.cfg.target_ecc
         return ((final_ecc - self.cfg.target_ecc)/(self.cfg.ecc_tol)) * self.ftol
@@ -255,7 +247,7 @@ class DirectSolver:
             - sma_grid: Grid of SMA values from initial SMA to target SMA
         """
         _, _, _, rel_tf = self.unpack_z(z)
-        final_eq_x_bar, _ = self.mean_equinoctial_propagation(z)
+        final_eq_x_bar = self.mean_equinoctial_propagation(z)
         final_mean_equin_state = final_eq_x_bar[0:5]
         final_mass = final_eq_x_bar[5]
 
@@ -280,20 +272,6 @@ class DirectSolver:
         dry_mass = self.cfg.spacecraft.dry_mass #TODO fix this
         mass_constraint = final_mass - dry_mass
 
-        # print(sma_target)
-
-        # constraint_dict = {
-        #     "eq_constraint": np.array([sma_constraint, ecc_constraint]),
-        # }
-
-        # constraint_dict = {
-        #     "eq_constraint": np.array([]),
-        #     "ineq_constraint": np.array([elliptic_constraint,
-        #                                  negative_ecc_constraint,
-        #                                  mass_constraint,
-        #                                  sma_target,
-        #                                  lower_sma_constraint]),
-        # }
         constraint_dict = {
             "eq_constraint": np.array([sma_relative_error,
                                        ecc_target]),
@@ -302,6 +280,7 @@ class DirectSolver:
             ]),
         }
 
+        #TODO delete and move
         print(
             f"SMA: {final_sma:12.6f} | "
             f"ECC: {final_ecc:12.6f} | "
@@ -324,7 +303,7 @@ class DirectSolver:
         
         print(f"--- Callback {self.ds_logger.iter_count} ---")
         a_lambda_a_grid, lambda_e_grid, lambda_i_grid, rel_tf = self.unpack_z(z)
-        final_eq_x_bar, _ = self.mean_equinoctial_propagation(z)
+        final_eq_x_bar = self.mean_equinoctial_propagation(z)
         final_mean_equin_state = final_eq_x_bar[0:5]
         # NOTE: Dummy value of 0 for F inserted, so resulting E is also a dummy value with no meaning
         final_mean_kep_state = astro_utils.equinoctial_to_classical(np.concatenate((final_mean_equin_state,[0.0])))
@@ -340,29 +319,22 @@ class DirectSolver:
             final_mass=final_eq_x_bar[5],
             tf=rel_tf*self.cfg.tf_tol
         )
-        self.ds_logger.log_current_entry(log_entry)
+        self.ds_logger.log_current_iter_entry(log_entry)
 
         self.ds_logger.iter_count = self.ds_logger.iter_count + 1
         return None
 
     def mean_equinoctial_propagation(self,
-                                    z: np.ndarray):
+                                    z: np.ndarray,
+                                    log: bool = False) -> np.ndarray:
         """
         Given initial state and grid of costates variables,
         propagates averaged state to final time.
-
-        Arguments:
-            - init_equin_state: Initial equinoctial state
-            - initial_mass: Initial mass (kg)
-            - initial_utc_string: Initial UTC string
-            - sma_grid: Grid of SMA values from initial SMA to target SMA
-            - a_lambda_a_grid: Grid of a*lambda_a values
-            - lambda_e_grid: Grid of lambda_e_values
-            - lambda_i_grid: Grid of lambda_i values
-            - tf: Final time
-
-        Returns
         """
+
+        if log and self.ds_logger.logged_prop_data != []:
+            raise ValueError("Log is not empty.")
+
         a_lambda_a_grid, lambda_e_grid, lambda_i_grid, rel_tf = self.unpack_z(z)
         tf = rel_tf * self.cfg.tf_tol
 
@@ -382,15 +354,22 @@ class DirectSolver:
                                                                                            a_lambda_a_grid, 
                                                                                            lambda_e_grid)
 
-        
         # Enter propagation loop
         num_steps = 40 #TODO arbitrary
-        logged_data = np.zeros((num_steps+1, 7))
         delta_t = tf/num_steps
         for step_ind in range(num_steps+1):
-
-            logged_data[step_ind,0] = t_curr
-            logged_data[step_ind,1:7] = x_bar_curr
+    
+            if log:
+                logged_entry = MeanPropLogEntry(
+                    t=t_curr,
+                    sma=x_bar_curr[0],
+                    h=x_bar_curr[1],
+                    k=x_bar_curr[2],
+                    p=x_bar_curr[3],
+                    q=x_bar_curr[4],
+                    m=x_bar_curr[5]
+                )
+                self.ds_logger.log_current_prop_entry(logged_entry)
 
             if x_bar_curr[0] < Constants.R_EARTH + 160:
                 print(f"WARNING: Current solver iteration targeted an infeasible SMA: {x_bar_curr[0]}.")
@@ -403,14 +382,11 @@ class DirectSolver:
                                                     x_bar_curr,
                                                     delta_t)
             
-
             # Prepare for next iteration (k -> k+1)
             x_bar_curr = x_bar_next
             t_curr = t_curr + delta_t
 
-        
-
-        return x_bar_curr, logged_data
+        return x_bar_curr
     
     def mean_equinoctial_derivative(self, 
                                   t: float,
@@ -441,11 +417,39 @@ class DirectSolver:
         lambda_a = a_lambda_a / curr_sma
 
         mean_equin_state = mean_state[0:5]
+        #NOTE: arbitrary eccentric anomaly set to zero
+        kep_state = astro_utils.equinoctial_to_classical(
+            np.concatenate((mean_equin_state, [0.0]))
+        )
+        ecc = kep_state[1]
+        raan = kep_state[3]
+        aop = kep_state[4]
+
+        #DEBUG #TODO remove
+        if ecc == 0:
+            print("WARNING ECC IS ZERO!")
         
         # Generate integration limits
         # NOTE: Need to be careful here, SPICE defines angles as [0,2pi]
         curr_et = initial_et + t
-        F_en = np.pi # TODO actually compute it for now just trying to see if solver works for eclipseless case tho
+        # curr_utc_str = spice.et2utc(curr_et, 'ISOC', 6)
+        # if isinstance(curr_utc_str,str):
+        #     ta_en, ta_ex = eclipse_utils.compute_eclipse_angles(kep_state, curr_utc_str)
+        # else:
+        #     raise ValueError("`curr_utc_str` is not a string.")
+        # if ta_en is not None and ta_ex is not None:
+        #     E_en = astro_utils.true2eccentric(ta_en, ecc)
+        #     F_en = np.mod(raan + aop + E_en, 2*np.pi)
+        #     E_ex = astro_utils.true2eccentric(ta_ex, ecc)
+        #     F_ex = np.mod(raan + aop + E_ex, 2*np.pi)
+        # elif ta_en is None and ta_ex is None:
+        #     F_en = 2*np.pi
+        #     F_ex = 0.0
+        # else:
+        #     raise ValueError("Failed to generate eclipse entry and exit points.")
+        
+        # For some reason (0,2pi) bounds dont work
+        F_en = np.pi
         F_ex = -np.pi
         F_grid = np.linspace(F_ex, F_en, 20) #TODO 20 is arbitrary still
         #TODO assume thruster power and hence thurst is zero when sc in in shadow. If no shadowing conditions exist
@@ -458,12 +462,12 @@ class DirectSolver:
         for ind in range(len(F_grid)):
             F_i = F_grid[ind]
             full_equin_state = np.concatenate((mean_state[0:5],[F_i]))
-            integrand_grid[ind,:] = self.equinoctial_integrand(full_equin_state, lambda_a, lambda_e)
+            integrand_grid[ind,:]= self.equinoctial_integrand(full_equin_state, lambda_a, lambda_e)
         mean_equin_state_dot = np.trapezoid(integrand_grid, F_grid, axis=0)
 
         # Compute averaged rates of change from J2 effect
-        # mean_equin_state_dot_j2 = self.compute_equinoctial_j2_rate(mean_equin_state)
-        mean_equin_state_dot_j2 = np.array([0,0,0,0,0])
+        mean_equin_state_dot_j2 = self.compute_equinoctial_j2_rate(mean_equin_state)
+        # mean_equin_state_dot_j2 = np.array([0,0,0,0,0])
 
         total_mean_equin_state_dot = mean_equin_state_dot + mean_equin_state_dot_j2
 
@@ -499,6 +503,9 @@ class DirectSolver:
         alpha = self.compute_thrust_angle(sma,ecc,ta,
                                           lambda_a,lambda_e)
         
+        if alpha > np.pi or alpha < -np.pi:
+            print("WARNING: thrust angle has a negative tangential component")
+        
         # Conmpute instantaneous state derivative
         slow_state_dot = self.slow_equinoctial_diff_eq(equin_state, alpha)
 
@@ -507,9 +514,10 @@ class DirectSolver:
 
         return slow_state_dot * dt_dF_T
 
+
     def slow_equinoctial_diff_eq(self,
                                 equin_state: np.ndarray,
-                                alpha: float,) -> np.ndarray:
+                                alpha: float) -> np.ndarray:
         """
         Compute slow equinoctial state derivatives using the full 
         equinoctial state.

@@ -1,1 +1,1 @@
-GNC
+Low thrust satellite guidance and control for LEO.

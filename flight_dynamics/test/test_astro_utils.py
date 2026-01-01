@@ -82,12 +82,34 @@ def test_equinoctial_to_classical():
     res_equin_state = astro_utils.classical_to_equinoctial(res_kep_state)
     assert np.allclose(equin_state, res_equin_state, atol=1e-12)
 
+    # Test 2d array
+    equin_state = np.array([[sma, h, k, p, q, -np.pi],
+                            [sma, h, k, p, q, -np.pi],
+                            [sma, h, k, p, q, -np.pi]])
+    res_kep_state = astro_utils.equinoctial_to_classical(equin_state)
+
     # NOTE: So far I've been able to validate the conversion is perfectly inverse 
     # with up 1e-12 accuracy
 
+def test_compute_eccentricity_vector():
+
+    # Generate circular orbit
+    r = np.array([6633,0,0])
+    r_norm = np.linalg.norm(r)
+    v = np.array([0,np.sqrt(Constants.EARTH_MU/r_norm),0])
+
+    # Check that eccentricity vector of zero is returned for circular orbit
+    ecc_vec = astro_utils.compute_eccentricity_vector(r,v)
+    assert np.array_equal(ecc_vec, np.array([0,0,0]))
+
+    # Check that eccentricity vector points toward periapsis
+    v = np.array([0,np.sqrt(Constants.EARTH_MU/r_norm)+0.01,0])
+    ecc_vec = astro_utils.compute_eccentricity_vector(r,v)
+    assert ecc_vec[1] == 0 and ecc_vec[2] == 0 and ecc_vec[0] > 0
 
 # Debugging mode
 if __name__ == "__main__":
-    # test_conversions()
+    # test_conversions() #obsolete
     test_classical_to_equinoctial()
     test_equinoctial_to_classical()
+    test_compute_eccentricity_vector()

@@ -12,7 +12,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from flight_dynamics import astro_utils
 from flight_dynamics import Constants
 from flight_dynamics import time_utils
-from flight_dynamics.Eclipse import Eclipse
+from flight_dynamics import eclipse_utils
 from flight_dynamics.Propagator import Propagator, PropagatorTerminator
 from flight_dynamics.OrbitLogger import OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft

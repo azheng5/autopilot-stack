@@ -3,7 +3,6 @@ from dataclasses import fields
 from enum import Enum, auto
 from pathlib import Path
 from tqdm import tqdm
-from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -11,9 +10,9 @@ import spiceypy as spice
 
 sys.path.append(str(Path(__file__).parent.parent))
 import flight_dynamics.astro_utils as astro_utils
+import flight_dynamics.eclipse_utils as eclipse_utils
 import flight_dynamics.timestepper_utils as timestepper_utils
 from flight_dynamics import Constants
-from flight_dynamics.Eclipse import Eclipse
 from flight_dynamics.OrbitLogger import LogEntry, OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft
 
@@ -89,7 +88,7 @@ class Propagator:
             curr_ang_mom = np.cross(curr_cart_pos, curr_cart_vel)
             curr_h_norm = np.linalg.norm(curr_ang_mom)
             curr_kep_state = astro_utils.cart2kep(curr_cart_state, curr_et)
-            eclipse_status = Eclipse.check_eclipse(curr_cart_state[0:3], curr_utc_str)
+            eclipse_status = eclipse_utils.check_eclipse(curr_cart_state[0:3], curr_utc_str)
             curr_orbit_period = astro_utils.get_orbit_period(curr_kep_state[0])
 
             # Sample control input

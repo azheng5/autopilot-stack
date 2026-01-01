@@ -54,9 +54,9 @@ spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
 def test_perform_control_parameterization():
 
     sma = 6700
-    ecc = 0.001
-    # inc = astro_utils.compute_sso_inc(sma, ecc)
-    inc = 0.0 * (np.pi/180)
+    ecc = 0.00001
+    inc = astro_utils.compute_sso_inc(sma, ecc)
+    # inc = 0.0 * (np.pi/180)
     raan = 0.0 * (np.pi / 180)
     aop = 0.0 * (np.pi / 180)
     ma = 0.0 * (np.pi / 180)
@@ -86,8 +86,12 @@ def test_perform_control_parameterization():
                                ecc_tol,
                                tf_tol)
     solver = DirectSolver(cfg)
-    out_z = solver.perform_control_parameterization()
-    solver.ds_logger.plot_iterations()
+    ds_result = solver.perform_control_parameterization()
+    # solver.ds_logger.plot_iterations()
+    solver.ds_logger.plot_mean_propagation()
+    solver.ds_logger.plot_costates()
+
+    plt.show()
 
     print("done")
 
@@ -232,6 +236,7 @@ def test_mean_equinoctial_propagation():
 # Debugging mode
 if __name__ == "__main__":
     # test_orbit_averaged_propagation()
-    test_perform_control_parameterization()
     # test_slow_equinoctial_diff_eq()
     # test_mean_equinoctial_propagation()
+
+    test_perform_control_parameterization()

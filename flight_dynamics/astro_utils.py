@@ -199,8 +199,52 @@ def eccentric2true(E: float, ecc: float) -> float:
         np.sqrt(1 - ecc) * np.cos(E/2)
     )
 
-def true2mean():
-    pass
+def true2mean(ta: float, ecc: float) -> float:
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return ta
+    
+    E = true2eccentric(ta, ecc)
+    return eccentric2mean(E, ecc)
+
+def eccentric2mean(E: float, ecc: float) -> float:
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    if ecc == 0:
+        return E
+    return E - ecc*np.sin(E)
+
+def compute_eccentricity_vector(r: np.ndarray, 
+                                v: np.ndarray) -> np.ndarray:
+    """
+    Compute the eccentricity vector, which always points to
+    periapsis. For circular orbits, the eccentricity vector becomes
+    zero.
+    """
+    
+    h = np.cross(r,v)
+    r_norm = np.linalg.norm(r)
+    return (1/Constants.EARTH_MU) * np.cross(v,h) - r/r_norm
+
+def compute_semi_latus_rectum(sma: float, ecc: float) -> float:
+    """
+    Compute semi latus rectum, p (km).
+    """
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    return sma*(1-ecc**2)
+
+def compute_periapsis(sma: float, ecc: float) -> float:
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    return sma*(1-ecc)
+
+def compute_apoapsis(sma: float, ecc: float) -> float:
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    return sma*(1+ecc)
 
 def true2eccentric(ta: float, ecc: float) -> float:
 
@@ -256,6 +300,7 @@ def classical_to_equinoctial(kep_state: np.ndarray) -> np.ndarray:
     Returns
         - np.ndarray: [sma h k p q F]
     """
+    #TODO make work for 2d arrays too
 
     if len(kep_state) != 6:
         raise ValueError("Input state is not correct length.")
@@ -299,42 +344,59 @@ def equinoctial_to_classical(equin_state: np.ndarray) -> np.ndarray:
         - np.ndarray: [sma ecc inc raan aop E]
     """
 
-    if len(equin_state) != 6:
-        raise ValueError("Input state is not correct length.")
-
-    sma = equin_state[0]
-    h = equin_state[1]
-    k = equin_state[2]
-    p = equin_state[3]
-    q = equin_state[4]
-    F = equin_state[5]
-
-    # these never happen as long as orbit eccentricity in [0,1)
-    if h >= 1:
-        raise ValueError(f"h is greater than or equal 1: {h}")
-    if h <= -1:
-        raise ValueError(f"h is less than or equal -1: {h}")
-    if k >= 1:
-        raise ValueError(f"k is greater than or equal 1: {k}")
-    if k <= -1:
-        raise ValueError(f"k is less than or equal -1: {k}")
-
-    ecc = np.sqrt(h**2 + k**2)
-
-    lop = np.arctan2(h,k)
-    E = F - lop
-
-    inc = 2 * np.arctan2(np.sqrt(p**2+q**2),1)
-    raan = np.arctan2(p,q)
-    aop = lop - raan
-
-    if ecc == 0:
-        print("NOTE: Converted to e=0 since h=0 and k=0: Info about F will be lost, and defaulting to AOP=0.")
-        aop = 0
+    if equin_state.ndim == 1:
+        if equin_state.shape[0] != 6:
+            raise ValueError("Input state is not correct size.")
+        equin_state_arr = equin_state.reshape(1,6)
+    elif equin_state.ndim == 2:
+        if equin_state.shape[1] != 6:
+            raise ValueError("Input state is not correct size.")
+        equin_state_arr = equin_state
     else:
+        raise ValueError("Input array must be 1d or 2d")
+    
+    kep_state_arr = np.zeros((equin_state_arr.shape[0],equin_state_arr.shape[1]))
+
+    for ind in range(equin_state_arr.shape[0]):
+
+        sma = equin_state_arr[ind,0]
+        h = equin_state_arr[ind,1]
+        k = equin_state_arr[ind,2]
+        p = equin_state_arr[ind,3]
+        q = equin_state_arr[ind,4]
+        F = equin_state_arr[ind,5]
+
+        # these never happen as long as orbit eccentricity in [0,1)
+        if h >= 1:
+            raise ValueError(f"h is greater than or equal 1: {h}")
+        if h <= -1:
+            raise ValueError(f"h is less than or equal -1: {h}")
+        if k >= 1:
+            raise ValueError(f"k is greater than or equal 1: {k}")
+        if k <= -1:
+            raise ValueError(f"k is less than or equal -1: {k}")
+
+        ecc = np.sqrt(h**2 + k**2)
+
+        lop = np.arctan2(h,k)
+        E = F - lop
+
+        inc = 2 * np.arctan2(np.sqrt(p**2+q**2),1)
+        raan = np.arctan2(p,q)
         aop = lop - raan
 
-    return np.array([sma,ecc,inc,raan,aop,E])
+        if ecc == 0:
+            print("NOTE: Converted to e=0 since h=0 and k=0: Info about F will be lost, and defaulting to AOP=0.")
+            aop = 0
+        else:
+            aop = lop - raan
+
+        kep_state_arr[ind,:] = np.array([sma,ecc,inc,raan,aop,E])
+
+    if equin_state.ndim == 1:
+        return kep_state_arr.ravel()
+    if equin_state.ndim == 2:
+        return kep_state_arr
 
 #TODO:
 def lla_to_eci():
