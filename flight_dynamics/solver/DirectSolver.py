@@ -432,21 +432,24 @@ class DirectSolver:
         # Generate integration limits
         # NOTE: Need to be careful here, SPICE defines angles as [0,2pi]
         curr_et = initial_et + t
-        # curr_utc_str = spice.et2utc(curr_et, 'ISOC', 6)
-        # if isinstance(curr_utc_str,str):
-        #     ta_en, ta_ex = eclipse_utils.compute_eclipse_angles(kep_state, curr_utc_str)
-        # else:
-        #     raise ValueError("`curr_utc_str` is not a string.")
-        # if ta_en is not None and ta_ex is not None:
-        #     E_en = astro_utils.true2eccentric(ta_en, ecc)
-        #     F_en = np.mod(raan + aop + E_en, 2*np.pi)
-        #     E_ex = astro_utils.true2eccentric(ta_ex, ecc)
-        #     F_ex = np.mod(raan + aop + E_ex, 2*np.pi)
-        # elif ta_en is None and ta_ex is None:
-        #     F_en = 2*np.pi
-        #     F_ex = 0.0
-        # else:
-        #     raise ValueError("Failed to generate eclipse entry and exit points.")
+        curr_utc_str = spice.et2utc(curr_et, 'ISOC', 6)
+        if isinstance(curr_utc_str,str):
+            ta_en, ta_ex = eclipse_utils.compute_eclipse_angles(kep_state, curr_utc_str)
+        else:
+            raise ValueError("`curr_utc_str` is not a string.")
+        
+        if ta_en ==0 and ta_ex == 0:
+            F_en = np.pi
+            F_ex = -np.pi
+        else:
+            if ta_en > np.pi:
+                ta_en = ta_en - 2*np.pi
+            if ta_ex > np.pi:
+                ta_ex = ta_ex - 2*np.pi
+            E_en = astro_utils.true2eccentric(ta_en, ecc)
+            F_en = np.mod(raan + aop + E_en, 2*np.pi)
+            E_ex = astro_utils.true2eccentric(ta_ex, ecc)
+            F_ex = np.mod(raan + aop + E_ex, 2*np.pi)
         
         # For some reason (0,2pi) bounds dont work
         F_en = np.pi

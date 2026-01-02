@@ -55,8 +55,8 @@ def test_perform_control_parameterization():
 
     sma = 6700
     ecc = 0.00001
-    inc = astro_utils.compute_sso_inc(sma, ecc)
-    # inc = 0.0 * (np.pi/180)
+    # inc = astro_utils.compute_sso_inc(sma, ecc)
+    inc = 10.0 * (np.pi/180)
     raan = 0.0 * (np.pi / 180)
     aop = 0.0 * (np.pi / 180)
     ma = 0.0 * (np.pi / 180)
@@ -142,7 +142,7 @@ def test_mean_equinoctial_propagation():
     sma = 7000
     ecc = 0.1
     # inc = astro_utils.compute_sso_inc(sma, ecc)
-    inc = 10.0 * (np.pi/180)
+    inc = 0.0 * (np.pi/180)
     raan = 30 * (np.pi / 180)
     aop = 40 * (np.pi / 180)
     E = 0.1 * (np.pi / 180)

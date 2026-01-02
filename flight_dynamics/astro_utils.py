@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import spiceypy as spice
@@ -397,6 +398,62 @@ def equinoctial_to_classical(equin_state: np.ndarray) -> np.ndarray:
         return kep_state_arr.ravel()
     if equin_state.ndim == 2:
         return kep_state_arr
+    
+def shortest_angular_dist(a: float, b: float) -> float:
+
+    # Get smaller (x) and larger (y) angles
+    if a < b:
+        x = a
+        y = b
+    elif b < a:
+        x = b
+        y = a
+    else:
+        return 0.0
+    
+    delta1 = y-x
+    delta2 = 2*np.pi - delta1
+
+    if delta1<delta2:
+        return delta1
+    elif delta2<delta1:
+        return delta2
+    else:
+        return delta1
+
+def compute_perifocal_unit_vectors(cart_state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute perifocal unit vectors P_hat and Q_hat.
+    
+    References:
+        - Escobal, Methods of Orbit Determination, 1985
+    """
+    pass
+    #verified these match the method used in compute_eclipse_angles for  i not equal to 
+    # 0,pi and enot equal to zero
+    #TODO: move this into its own function and reference Escobaal methods of OD 1985 for
+    # edge cases
+    # cosO = np.cos(raan)
+    # sinO = np.sin(raan)
+    # cosi = np.cos(inc)
+    # sini = np.sin(inc)
+    # cosw = np.cos(aop)
+    # sinw = np.sin(aop)
+    # P_hat = np.array([
+    #     cosw*cosO - sinw*sinO*cosi,
+    #     cosw*sinO + sinw*cosO*cosi,
+    #     sinw*sini
+    # ])
+    # Q_hat = np.array([
+    #     -sinw*cosO - cosw*sinO*cosi,
+    #     -sinw*sinO + cosw*cosO*cosi,
+    #     cosw*sini
+    # ])
+
+    P_hat = np.array([0,0,0])
+    Q_hat = np.array([0,0,0])
+
+    return P_hat, Q_hat
 
 #TODO:
 def lla_to_eci():
