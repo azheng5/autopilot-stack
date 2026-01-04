@@ -18,8 +18,8 @@ id = '01'
 wet_mass = 200
 dry_mass = 50
 Isp = 3000
-Cd = 1
-A_ref = 1
+Cd = 2.2
+A_ref = 3
 spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
 
 # def test_orbit_averaged_propagation():

@@ -13,6 +13,7 @@ import flight_dynamics.astro_utils as astro_utils
 import flight_dynamics.eclipse_utils as eclipse_utils
 import flight_dynamics.timestepper_utils as timestepper_utils
 from flight_dynamics import Constants
+from flight_dynamics.ExpAtmosphereModel import ExpAtmosphereModel
 from flight_dynamics.OrbitLogger import LogEntry, OrbitLogger
 from flight_dynamics.Spacecraft import Spacecraft
 
@@ -24,6 +25,7 @@ class PropagatorTerminator(Enum):
     PHASE_COUNT_LIMIT = auto()
     ECLIPSE_FALLING_EDGE = auto()
     ECLIPSE_RISING_EDGE = auto()
+    ATMOS_ENTRY = auto()
     NONE = auto()
 
 class Propagator:
@@ -37,6 +39,7 @@ class Propagator:
     def __init__(self,
                  spacecraft: Spacecraft) -> None:
         self.spacecraft = spacecraft
+        self.atm_model = ExpAtmosphereModel(spacecraft)
 
     def propagate(self,
                   initial_kep_state: np.ndarray,
@@ -186,6 +189,11 @@ class Propagator:
                 termination_cause = PropagatorTerminator.PHASE_COUNT_LIMIT
                 break
 
+            if (PropagatorTerminator.ATMOS_ENTRY in terminators):
+                if np.linalg.norm(curr_cart_state[0:3]) - Constants.R_EARTH <= 130:
+                    break
+                
+
             # Compute RK4 step
             delta_t = spice.utc2et(time_grid[step_counter+1]) - spice.utc2et(time_grid[step_counter])
             x_next = timestepper_utils.rk4_step(self.cartesian_eom, 
@@ -232,6 +240,7 @@ class Propagator:
         m, rx, ry, rz, vx, vy, vz = x
         r = np.array([rx, ry, rz])
         v = np.array([vx, vy, vz])
+        cart_state = np.array([rx, ry, rz, vx, vy, vz])
         r_norm = np.linalg.norm(r)
 
         # Extract control vector
@@ -245,10 +254,15 @@ class Propagator:
                                 (1 - (5*(rz/r_norm)**2)) * (ry/r_norm),
                                 (3 - (5*(rz/r_norm)**2)) * (rz/r_norm) ])
         a_j2 = -1.5 * Constants.J2 * (Constants.EARTH_MU / r_norm**2) * (Constants.R_EARTH/r_norm)**2 * j2_unit_vec
-        # a_j2 = np.array([0,0,0])
+        a_j2 = np.array([0,0,0])
 
         # Compute atmospheric drag perturbing acceleration
-        a_drag = np.array([0,0,0])
+        a_drag = self.atm_model.compute_specific_drag_force(
+            cart_state,
+            m
+        )
+        # a_drag = np.array([0,0,0])
+        # print(f"{a_drag}")
 
         # Compute thrust acceleration
         a_thrust = (u / m).ravel()

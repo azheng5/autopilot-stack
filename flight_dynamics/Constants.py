@@ -32,6 +32,9 @@ G0 = 0.00980665
 
 SIDEREAL_YEAR_SEC = 365.25 * 24 * 3600
 
+# Earth rotational rate (rad/s)
+EARTH_ROT_RATE = 7.2921159e-5
+
 """
 Universal output data path
 """
