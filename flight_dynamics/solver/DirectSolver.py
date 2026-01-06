@@ -60,10 +60,10 @@ class DirectSolver:
         # optimal thrust angle equation hits a singularity,
         # so numerically we avoid using 0.
         #TODO 5 is still hardcoded
-        # a_lambda_a_bounds = [(-20,-0.0001)]*self.cfg.num_costate_nodes
-        # lambda_e_bounds = [(-0.01,10.0)]*self.cfg.num_costate_nodes
-        a_lambda_a_bounds = [(None,None)]*self.cfg.num_costate_nodes
-        lambda_e_bounds = [(None,None)]*self.cfg.num_costate_nodes
+        a_lambda_a_bounds = [(-20,-0.0001)]*self.cfg.num_costate_nodes
+        lambda_e_bounds = [(-0.01,1.0)]*self.cfg.num_costate_nodes
+        # a_lambda_a_bounds = [(None,None)]*self.cfg.num_costate_nodes
+        # lambda_e_bounds = [(None,None)]*self.cfg.num_costate_nodes
         lambda_i_bounds = [(0,0)]*self.cfg.num_costate_nodes
         rel_tf_bounds = (0.0,50*initial_guess[-1])
         bounds = [*a_lambda_a_bounds,
@@ -111,7 +111,7 @@ class DirectSolver:
         final_mean_kep_state = astro_utils.equinoctial_to_classical(np.concatenate((final_mean_equin_state,[0.0])))
         tf = rel_tf*self.cfg.tf_tol
         #TODO: this is debug stuff remove
-        print(f"Final SMA: {final_mean_kep_state[0]}")
+        print(f"Final SMA Altitude: {final_mean_kep_state[0]-Constants.R_EARTH}")
         print(f"Final ECC: {final_mean_kep_state[1]}")
         print(f"Final INC: {final_mean_kep_state[2]}")
         print(f"Final RAAN: {final_mean_kep_state[3]}")
@@ -185,10 +185,10 @@ class DirectSolver:
         T = self.cfg.A_mag*self.cfg.initial_mass
         ve = self.cfg.spacecraft.Isp * Constants.G0
         tf = ((self.cfg.initial_mass*ve)/T) * (1 - np.exp(-delta_v/ve))
-        # Scale by factor of 1.2 to account for eclipse times
-        #minor TODO 1.2 is arbitrary, scaling could be more accurate 
-        # by getting eclipse arc time of initial orbit
-        tf_guess = 1.2 * tf
+        eclipse_time = eclipse_utils.compute_eclipse_time(self.cfg.initial_kep_state,
+                                                        self.cfg.initial_utc_str)
+        orbit_period = astro_utils.get_orbit_period(sma)
+        tf_guess = (1+(eclipse_time/orbit_period)) * tf
 
         rel_tf_guess = tf_guess / self.cfg.tf_tol
 
@@ -269,8 +269,7 @@ class DirectSolver:
         ecc_target = self.ecc_constraint(final_ecc)
         # negative_ecc_constraint = final_ecc
         # lower_sma_constraint = self.cfg.initial_equin_state[0]-10
-        dry_mass = self.cfg.spacecraft.dry_mass #TODO fix this
-        mass_constraint = final_mass - dry_mass
+        mass_constraint = final_mass - self.cfg.spacecraft.dry_mass
 
         constraint_dict = {
             "eq_constraint": np.array([sma_relative_error,
@@ -282,7 +281,7 @@ class DirectSolver:
 
         #TODO delete and move
         print(
-            f"SMA: {final_sma:12.6f} | "
+            f"SMA Altitude: {(final_sma-Constants.R_EARTH):12.6f} | "
             f"ECC: {final_ecc:12.6f} | "
             f"INC: {final_inc:12.6f} | "
             f"RAAN: {final_raan:12.6f} | "
@@ -438,22 +437,23 @@ class DirectSolver:
         else:
             raise ValueError("`curr_utc_str` is not a string.")
         
-        if ta_en ==0 and ta_ex == 0:
-            F_en = np.pi
-            F_ex = -np.pi
+        if ta_en == 0 and ta_ex == 0:
+            F_en = 2*np.pi#np.pi
+            F_ex = 0.0#-np.pi
+        # else:
+        #     if ta_en > np.pi:
+        #         ta_en = ta_en - 2*np.pi
+        #     if ta_ex > np.pi:
+        #         ta_ex = ta_ex - 2*np.pi
         else:
-            if ta_en > np.pi:
-                ta_en = ta_en - 2*np.pi
-            if ta_ex > np.pi:
-                ta_ex = ta_ex - 2*np.pi
             E_en = astro_utils.true2eccentric(ta_en, ecc)
             F_en = np.mod(raan + aop + E_en, 2*np.pi)
             E_ex = astro_utils.true2eccentric(ta_ex, ecc)
             F_ex = np.mod(raan + aop + E_ex, 2*np.pi)
         
-        # For some reason (0,2pi) bounds dont work
-        F_en = np.pi
-        F_ex = -np.pi
+        if F_en < F_ex:
+            F_en = F_en + 2*np.pi
+
         F_grid = np.linspace(F_ex, F_en, 20) #TODO 20 is arbitrary still
         #TODO assume thruster power and hence thurst is zero when sc in in shadow. If no shadowing conditions exist
         # for a prtcly osculating orbit, then limits are from E_ex=-pi to E_en=pi

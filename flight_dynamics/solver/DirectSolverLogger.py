@@ -154,7 +154,7 @@ class DirectSolverLogger:
         axes[1,1].set_ylabel("q")
         axes[1,1].grid(True)
         plt.suptitle("Mean Equinoctial Elements")
-        fig.supxlabel(f"Time (sec)")
+        fig.supxlabel(f"Time (days)")
         plt.tight_layout()
 
         fig, axes = plt.subplots(3, 2)
@@ -174,13 +174,13 @@ class DirectSolverLogger:
         axes[1,1].set_ylabel("aop")
         axes[1,1].grid(True)
         plt.suptitle("Mean Keplerian Elements")
-        fig.supxlabel(f"Time (sec)")
+        fig.supxlabel(f"Time (days)")
         plt.tight_layout()
 
         fig = plt.figure()
         ax = fig.add_subplot(1,1,1)
         ax.plot(out_df["t"], out_df["m"])
-        ax.set_xlabel(f"Time (sec)")
+        ax.set_xlabel(f"Time (days)")
         ax.set_ylabel("Mass (kg)")
 
     def plot_costates(self):

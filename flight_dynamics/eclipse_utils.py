@@ -299,6 +299,33 @@ def compute_eclipse_angles(kep_state: np.ndarray,
 
     return ta_entry, ta_exit
 
+def compute_eclipse_time(kep_state: np.ndarray,
+                           curr_utc_str: str) -> float:
+    """
+    Compute time (seconds) spent in eclipse for a single revolution
+    of the specified keplerian orbit.
+
+    Arguments:
+        - kep_state: [sma ecc inc raan aop ta]
+        - curr_utc_str: Current UTC string
+    """
+
+    sma = kep_state[0]
+    ecc = kep_state[1]
+
+    if ecc < 0:
+        raise ValueError("Eccentricity is negative.")
+    
+    ta_en, ta_ex = compute_eclipse_angles(kep_state, curr_utc_str)
+    ma_en = astro_utils.true2mean(ta_en, ecc)
+    ma_ex = astro_utils.true2mean(ta_ex, ecc)
+
+    # Compute change in mean anomaly in eclipse arc
+    delta_m = astro_utils.shortest_angular_dist(ma_en, ma_ex)
+
+    # Compute time spent in eclipse arc
+    return astro_utils.mean_anomaly_to_time(ma_en + delta_m, ma_en, sma)
+
 def sort_eclipse_angles(a: float, b: float) -> Tuple[float,float]:
     """
     Given two angles from [0,2pi], determine which is entry and which is exit.

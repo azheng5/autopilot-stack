@@ -160,7 +160,6 @@ def test_compare_eclipse_angle_functions():
                     assert astro_utils.shortest_angular_dist(ta_entry, ta2_entry) <= 1e-1 and astro_utils.shortest_angular_dist(ta_exit, ta2_exit) <= 1e-1
                 else:
                     raise ValueError("Entry and exit angles are None.")
-
 # Debugging mode
 if __name__ == "__main__":
     # test_check_eclipse()

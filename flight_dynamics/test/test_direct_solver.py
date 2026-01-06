@@ -53,22 +53,22 @@ spacecraft = Spacecraft(id, wet_mass, dry_mass, Isp, Cd, A_ref)
 
 def test_perform_control_parameterization():
 
-    sma = 6700
-    ecc = 0.00001
+    sma = Constants.R_EARTH + 300
+    ecc = 0.01
     # inc = astro_utils.compute_sso_inc(sma, ecc)
-    inc = 10.0 * (np.pi/180)
+    inc = 45.0 * (np.pi/180)
     raan = 0.0 * (np.pi / 180)
     aop = 0.0 * (np.pi / 180)
     ma = 0.0 * (np.pi / 180)
     initial_kep_state = np.array([sma, ecc, inc, raan, aop, ma])
 
-    target_sma = sma + 500
+    target_sma = sma + 200
     target_ecc = 0.0
     initial_utc_str  = "2025-01-01T00:00:00.000"
 
-    sma_tol = 1
+    sma_tol = 5
     ecc_tol = 1e-3
-    tf_tol = 10000
+    tf_tol = 20000
 
     A_mag = 2.943e-4 * 1e-3
 

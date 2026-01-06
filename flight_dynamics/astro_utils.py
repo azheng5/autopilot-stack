@@ -400,6 +400,10 @@ def equinoctial_to_classical(equin_state: np.ndarray) -> np.ndarray:
         return kep_state_arr
     
 def shortest_angular_dist(a: float, b: float) -> float:
+    """
+    Compute the shortest angular distance between two angles
+    in the [0,2pi] domain.
+    """
 
     # Get smaller (x) and larger (y) angles
     if a < b:
