@@ -1,6 +1,6 @@
 .git/
 .vscode/
 venv/
-data/
+/data/
 build/
 flight_dynamics/cpp/
